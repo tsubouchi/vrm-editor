@@ -5,6 +5,9 @@ import { Parameter } from '@/app/types';
 import VRMParameterControl from './VRMParameterControl';
 import { processNaturalLanguageCommand } from '../../lib/gemini/geminiService';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Slider } from './slider';
+import { Label } from './label';
+import { Card, CardContent, CardHeader, CardTitle } from './card';
 
 interface VRMParameterEditorProps {
   onParameterChange: (parameters: Parameter[]) => void;
@@ -40,6 +43,31 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
   
   // コマンド送信の最適化用のdebounceタイマー
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // パラメータの状態管理
+  const [poseParams, setPoseParams] = useState<Record<string, number>>({
+    rightArmRotationX: 0,
+    rightArmRotationY: 0,
+    rightArmRotationZ: 0,
+    leftArmRotationX: 0,
+    leftArmRotationY: 0,
+    leftArmRotationZ: 0,
+    headRotationX: 0,
+    headRotationY: 0,
+    headRotationZ: 0,
+    spineRotationX: 0,
+    spineRotationY: 0,
+    spineRotationZ: 0,
+  });
+
+  const [expressionParams, setExpressionParams] = useState<Record<string, number>>({
+    happy: 0,
+    angry: 0,
+    sad: 0,
+    neutral: 0,
+    surprised: 0,
+    relaxed: 0,
+  });
 
   // 現在のパラメータが変更されたときに、内部の状態を更新
   useEffect(() => {
@@ -133,6 +161,37 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
     return defaultVal;
   };
 
+  // パラメータ変更のハンドラー
+  const handlePoseChange = useCallback((name: string, value: number) => {
+    setPoseParams(prev => {
+      const newParams = { ...prev, [name]: value };
+      // ポーズパラメータの変更を通知
+      onParameterChange(
+        Object.entries(newParams).map(([paramName, paramValue]) => ({
+          category: 'pose',
+          name: paramName,
+          value: paramValue,
+        }))
+      );
+      return newParams;
+    });
+  }, [onParameterChange]);
+
+  const handleExpressionChange = useCallback((name: string, value: number) => {
+    setExpressionParams(prev => {
+      const newParams = { ...prev, [name]: value };
+      // 表情パラメータの変更を通知
+      onParameterChange(
+        Object.entries(newParams).map(([paramName, paramValue]) => ({
+          category: 'face',
+          name: paramName,
+          value: paramValue,
+        }))
+      );
+      return newParams;
+    });
+  }, [onParameterChange]);
+
   return (
     <div className="bg-[#1e1e1e] p-4 rounded-lg shadow-md w-full">
       <h2 className="text-xl font-bold mb-4 text-white">モデルコントロール</h2>
@@ -220,382 +279,152 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
           {/* ポーズパラメータ */}
           {activeTab === 'pose' && (
             <div className="max-h-96 overflow-y-auto p-2">
-              <h3 className="font-medium mb-3">頭部回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'headRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'headRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'headRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'headRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'headRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'headRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">胴体回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'spineRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'spineRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'spineRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'spineRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'spineRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'spineRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">左腕回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftArmRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'leftArmRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftArmRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'leftArmRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftArmRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'leftArmRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">右腕回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightArmRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'rightArmRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightArmRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'rightArmRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightArmRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'rightArmRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">左手回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftHandRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'leftHandRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftHandRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'leftHandRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftHandRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'leftHandRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">右手回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightHandRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'rightHandRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightHandRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'rightHandRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightHandRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'rightHandRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">左脚回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftLegRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'leftLegRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftLegRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'leftLegRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftLegRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'leftLegRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">右脚回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightLegRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'rightLegRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightLegRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'rightLegRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightLegRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'rightLegRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">左足回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftFootRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'leftFootRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftFootRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'leftFootRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'leftFootRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'leftFootRotationZ', value)}
-                showValue={true}
-              />
-              
-              <h3 className="font-medium mb-3 mt-6">右足回転</h3>
-              <VRMParameterControl
-                label="X軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightFootRotationX')}
-                onChange={(value) => handleParameterChange('pose', 'rightFootRotationX', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Y軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightFootRotationY')}
-                onChange={(value) => handleParameterChange('pose', 'rightFootRotationY', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="Z軸回転"
-                min={-1}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('pose', 'rightFootRotationZ')}
-                onChange={(value) => handleParameterChange('pose', 'rightFootRotationZ', value)}
-                showValue={true}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>ポーズ調整</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* 右腕の制御 */}
+                    <div className="space-y-2">
+                      <Label>右腕の回転</Label>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <Label>X軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.rightArmRotationX]}
+                            onValueChange={([value]) => handlePoseChange('rightArmRotationX', value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Y軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.rightArmRotationY]}
+                            onValueChange={([value]) => handlePoseChange('rightArmRotationY', value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Z軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.rightArmRotationZ]}
+                            onValueChange={([value]) => handlePoseChange('rightArmRotationZ', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 左腕の制御 */}
+                    <div className="space-y-2">
+                      <Label>左腕の回転</Label>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <Label>X軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.leftArmRotationX]}
+                            onValueChange={([value]) => handlePoseChange('leftArmRotationX', value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Y軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.leftArmRotationY]}
+                            onValueChange={([value]) => handlePoseChange('leftArmRotationY', value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Z軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.leftArmRotationZ]}
+                            onValueChange={([value]) => handlePoseChange('leftArmRotationZ', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 頭の制御 */}
+                    <div className="space-y-2">
+                      <Label>頭の回転</Label>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <Label>X軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.headRotationX]}
+                            onValueChange={([value]) => handlePoseChange('headRotationX', value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Y軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.headRotationY]}
+                            onValueChange={([value]) => handlePoseChange('headRotationY', value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Z軸</Label>
+                          <Slider
+                            min={-1}
+                            max={1}
+                            step={0.01}
+                            value={[poseParams.headRotationZ]}
+                            onValueChange={([value]) => handlePoseChange('headRotationZ', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
           
           {/* 表情パラメータ */}
           {activeTab === 'face' && (
             <div>
-              <h3 className="font-medium mb-3">表情ブレンドシェイプ</h3>
-              <VRMParameterControl
-                label="笑顔"
-                min={0}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('face', 'happy')}
-                onChange={(value) => handleParameterChange('face', 'happy', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="悲しい"
-                min={0}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('face', 'sad')}
-                onChange={(value) => handleParameterChange('face', 'sad', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="怒り"
-                min={0}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('face', 'angry')}
-                onChange={(value) => handleParameterChange('face', 'angry', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="驚き"
-                min={0}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('face', 'surprised')}
-                onChange={(value) => handleParameterChange('face', 'surprised', value)}
-                showValue={true}
-              />
-              <VRMParameterControl
-                label="まばたき"
-                min={0}
-                max={1}
-                step={0.01}
-                defaultValue={0}
-                value={getParameterValue('face', 'blink')}
-                onChange={(value) => handleParameterChange('face', 'blink', value)}
-                showValue={true}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>表情調整</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {Object.entries(expressionParams).map(([name, value]) => (
+                      <div key={name}>
+                        <Label>{name}</Label>
+                        <Slider
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={[value]}
+                          onValueChange={([newValue]) => handleExpressionChange(name, newValue)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
           
