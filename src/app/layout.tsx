@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'VRM Editor',
+  title: 'VRM Control MCP server UI',
   description: 'VRMモデルを編集・カスタマイズするためのウェブアプリケーション'
 }
 
