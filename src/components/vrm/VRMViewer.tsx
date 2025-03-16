@@ -310,34 +310,157 @@ const VRMModel: React.FC<{
     if (!vrm.humanoid) return;
     
     try {
-      // ボーン名に対応する回転を適用
-      const boneNames = Object.values(vrm.humanoid.humanBones);
-      const targetBone = boneNames.find(bone => bone.node.name.includes(parameterName));
+      // パラメータ名に基づいてボーンと回転軸を決定
+      let boneName: string | null = null;
+      let rotationAxis: 'x' | 'y' | 'z' = 'y';
       
-      if (targetBone) {
-        // 値を角度（ラジアン）に変換して回転を適用
-        const angle = value * Math.PI; // 値を-1.0～1.0と仮定して-π～πに変換
-        targetBone.node.rotation.y = angle;
+      // パラメータ名からボーン名と回転軸を抽出
+      if (parameterName.startsWith('headRotation')) {
+        boneName = 'head';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('spineRotation')) {
+        boneName = 'spine';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('leftArmRotation')) {
+        boneName = 'leftUpperArm';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('rightArmRotation')) {
+        boneName = 'rightUpperArm';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('leftHandRotation')) {
+        boneName = 'leftHand';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('rightHandRotation')) {
+        boneName = 'rightHand';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('leftLegRotation')) {
+        boneName = 'leftUpperLeg';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('rightLegRotation')) {
+        boneName = 'rightUpperLeg';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('leftFootRotation')) {
+        boneName = 'leftFoot';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else if (parameterName.startsWith('rightFootRotation')) {
+        boneName = 'rightFoot';
+        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
+      } else {
+        console.warn(`未知のポーズパラメータ: ${parameterName}`);
+        return;
       }
+      
+      // ボーン名からVRMのボーンを取得する
+      let targetBone = null;
+      
+      // VRM規格のボーン名に変換（VRM 0.x系とVRM 1.0系の両方に対応）
+      const vrmBoneName = convertToVRMBoneName(boneName);
+      
+      if (vrmBoneName) {
+        // まず標準化されたボーン取得APIを試す
+        targetBone = vrm.humanoid.getNormalizedBoneNode(vrmBoneName as any) || 
+                     vrm.humanoid.getRawBoneNode(vrmBoneName as any);
+                     
+        // 見つからない場合は名前ベースで検索
+        if (!targetBone) {
+          targetBone = Object.values(vrm.humanoid.humanBones).find(bone => 
+            bone.node.name.toLowerCase().includes(boneName!.toLowerCase()))?.node;
+        }
+      }
+      
+      if (!targetBone) {
+        console.warn(`ボーン '${boneName}' (VRM名: ${vrmBoneName}) が見つかりませんでした`);
+        return;
+      }
+      
+      // 値を角度（ラジアン）に変換して回転を適用
+      const angle = value * Math.PI; // 値を-1.0～1.0と仮定して-π～πに変換
+      
+      // 軸に応じて回転を適用
+      if (rotationAxis === 'x') {
+        targetBone.rotation.x = angle;
+      } else if (rotationAxis === 'y') {
+        targetBone.rotation.y = angle;
+      } else if (rotationAxis === 'z') {
+        targetBone.rotation.z = angle;
+      }
+      
+      // デバッグ用
+      console.log(`ポーズパラメータを適用: ${boneName} (${vrmBoneName}) の ${rotationAxis}軸を ${angle}ラジアン回転`);
     } catch (error) {
       console.error('ポーズパラメータの適用中にエラーが発生しました:', error);
     }
   };
+  
+  // 内部ボーン名をVRM規格のボーン名に変換するヘルパー関数
+  const convertToVRMBoneName = (internalName: string): string | null => {
+    const boneMap: Record<string, string> = {
+      'head': 'head',
+      'neck': 'neck',
+      'spine': 'spine',
+      'hips': 'hips',
+      'leftUpperArm': 'leftUpperArm',
+      'leftLowerArm': 'leftLowerArm',
+      'leftHand': 'leftHand',
+      'rightUpperArm': 'rightUpperArm',
+      'rightLowerArm': 'rightLowerArm',
+      'rightHand': 'rightHand',
+      'leftUpperLeg': 'leftUpperLeg',
+      'leftLowerLeg': 'leftLowerLeg',
+      'leftFoot': 'leftFoot',
+      'rightUpperLeg': 'rightUpperLeg',
+      'rightLowerLeg': 'rightLowerLeg',
+      'rightFoot': 'rightFoot'
+    };
+    
+    return boneMap[internalName] || null;
+  };
 
   // 表情パラメータの適用関数
   const applyFaceParameter = (vrm: VRM, parameterName: string, value: number) => {
-    if (!vrm.expressionManager) return;
+    if (!vrm.expressionManager) {
+      console.warn('表情マネージャーが利用できません');
+      return;
+    }
     
     try {
-      // 表情名に対応する表情を設定
-      // VRMExpressionPresetName は直接インポートせず文字列として扱う
-      const expressions = [
-        'angry', 'blinkLeft', 'blinkRight', 'happy', 'lookDown',
-        'lookLeft', 'lookRight', 'lookUp', 'neutral', 'sad', 'surprised'
-      ];
+      // 表情パラメータ名とVRMの表情プリセット名のマッピング
+      const expressionMap: Record<string, string> = {
+        'happy': 'happy',
+        'angry': 'angry',
+        'sad': 'sad',
+        'surprised': 'surprised',
+        'blink': 'blink', // まばたきの場合は両目を閉じる
+        'blinkLeft': 'blinkLeft',
+        'blinkRight': 'blinkRight',
+        'neutral': 'neutral',
+        'lookLeft': 'lookLeft',
+        'lookRight': 'lookRight',
+        'lookUp': 'lookUp',
+        'lookDown': 'lookDown'
+      };
       
-      if (expressions.includes(parameterName)) {
-        vrm.expressionManager.setValue(parameterName, value);
+      // 対応する表情名を取得
+      const expressionName = expressionMap[parameterName];
+      
+      if (expressionName) {
+        // 特殊なケース: まばたき
+        if (parameterName === 'blink') {
+          // 両方の目を閉じる
+          vrm.expressionManager.setValue('blinkLeft', value);
+          vrm.expressionManager.setValue('blinkRight', value);
+        } else {
+          // 指定された表情を適用
+          vrm.expressionManager.setValue(expressionName, value);
+        }
+        
+        // 表情を更新
+        vrm.expressionManager.update();
+        
+        // デバッグ用
+        console.log(`表情パラメータを適用: ${expressionName} = ${value}`);
+      } else {
+        console.warn(`未知の表情パラメータ: ${parameterName}`);
       }
     } catch (error) {
       console.error('表情パラメータの適用中にエラーが発生しました:', error);
@@ -347,6 +470,13 @@ const VRMModel: React.FC<{
   // マテリアルパラメータの適用関数
   const applyMaterialParameter = (vrm: VRM, parameterName: string, value: number) => {
     try {
+      // マテリアル名の修正（metallic -> metalness）
+      const fixedParamName = parameterName === 'metallic' ? 'metalness' : parameterName;
+      // 透明度パラメータ名の修正（transparency -> opacity）
+      const materialPropName = fixedParamName === 'transparency' ? 'opacity' : fixedParamName;
+      
+      let appliedToAny = false;
+      
       vrm.scene.traverse((object) => {
         if (object instanceof THREE.Mesh) {
           // meshの場合のみmaterial属性にアクセスする
@@ -355,21 +485,48 @@ const VRMModel: React.FC<{
             const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             
             materials.forEach(material => {
-              if (material instanceof THREE.MeshStandardMaterial) {
+              if (material instanceof THREE.MeshStandardMaterial || 
+                  material instanceof THREE.MeshPhysicalMaterial) {
                 // マテリアルプロパティの調整
-                switch (parameterName) {
+                switch (materialPropName) {
                   case 'metalness':
                     material.metalness = value;
+                    appliedToAny = true;
                     break;
                   case 'roughness':
                     material.roughness = value;
+                    appliedToAny = true;
                     break;
                   case 'emissiveIntensity':
                     material.emissiveIntensity = value;
+                    appliedToAny = true;
+                    break;
+                  case 'opacity':
+                    material.opacity = value;
+                    material.transparent = value < 1.0;
+                    appliedToAny = true;
                     break;
                   default:
                     // その他のプロパティ
+                    console.warn(`サポートされていないマテリアルプロパティ: ${materialPropName}`);
                     break;
+                }
+                
+                material.needsUpdate = true;
+              } else if (material.type === 'ShaderMaterial' || material.type === 'RawShaderMaterial') {
+                // シェーダーマテリアルの場合
+                const shaderMaterial = material as THREE.ShaderMaterial;
+                if (shaderMaterial.uniforms) {
+                  // VRMのMToonマテリアルや他のシェーダーマテリアルの透明度設定
+                  if (materialPropName === 'opacity' && shaderMaterial.uniforms.opacity) {
+                    shaderMaterial.uniforms.opacity.value = value;
+                    // MToonマテリアルの場合、透明設定も変更する
+                    if (shaderMaterial.uniforms.isTransparent !== undefined) {
+                      shaderMaterial.uniforms.isTransparent.value = value < 1.0;
+                    }
+                    appliedToAny = true;
+                  }
+                  // 他のプロパティも設定できるように拡張可能
                 }
                 
                 material.needsUpdate = true;
@@ -378,6 +535,13 @@ const VRMModel: React.FC<{
           }
         }
       });
+      
+      // デバッグ用
+      if (appliedToAny) {
+        console.log(`マテリアルパラメータを適用: ${parameterName} (${materialPropName}) = ${value}`);
+      } else {
+        console.warn(`マテリアルパラメータを適用できませんでした: ${parameterName} (${materialPropName}) = ${value}`);
+      }
     } catch (error) {
       console.error('マテリアルパラメータの適用中にエラーが発生しました:', error);
     }

@@ -183,32 +183,43 @@ export const convertToQuery = async (instructions: any) => {
 // 多段階処理パイプラインの実行
 export const processNaturalLanguageCommand = async (userInput: string) => {
   try {
+    console.log('自然言語コマンド処理を開始:', userInput);
+    
     // ステップ1: 意図解析
     const intentAnalysis = await analyzeIntent(userInput);
     if (!intentAnalysis) {
+      console.warn('意図解析に失敗しました');
       return {
         success: false,
         feedback: '意図の解析に失敗しました。別の表現で試してください。'
       };
     }
     
+    console.log('意図解析結果:', intentAnalysis);
+    
     // ステップ2: 指示文生成
     const instructions = await generateInstructions(intentAnalysis);
     if (!instructions) {
+      console.warn('指示文生成に失敗しました');
       return {
         success: false,
         feedback: '指示文の生成に失敗しました。別の表現で試してください。'
       };
     }
     
+    console.log('指示文生成結果:', instructions);
+    
     // ステップ3: クエリ変換
     const query = await convertToQuery(instructions);
     if (!query) {
+      console.warn('クエリ変換に失敗しました');
       return {
         success: false,
         feedback: 'クエリの変換に失敗しました。別の表現で試してください。'
       };
     }
+    
+    console.log('クエリ変換結果:', query);
     
     return {
       success: true,

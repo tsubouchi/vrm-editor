@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import VRMViewer from '@/components/vrm/VRMViewer';
 import VRMParameterEditor from '@/components/ui/VRMParameterEditor';
-import NaturalLanguageInterface from '@/components/ui/NaturalLanguageInterface';
-import { processNaturalLanguageCommand } from '@/lib/gemini/geminiService';
 import { Squares } from '@/components/ui/squares-background';
 
 export default function Home() {
@@ -15,15 +13,9 @@ export default function Home() {
     value: number;
   }[]>([]);
 
-  // 自然言語処理の状態管理
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(false);
-
   // APIキーの確認
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    setIsApiKeySet(!!apiKey);
     
     if (!apiKey) {
       console.warn('Gemini APIキーが設定されていません。自然言語機能は動作しません。');
@@ -32,6 +24,8 @@ export default function Home() {
 
   // パラメータ変更ハンドラー
   const handleParameterChange = (parameterType: string, parameterName: string, value: number) => {
+    console.log(`パラメータ変更: ${parameterType} - ${parameterName} = ${value}`);
+    
     // 既存のパラメータ配列から同じタイプと名前のパラメータを探す
     const existingParamIndex = parameters.findIndex(
       param => param.parameterType === parameterType && param.parameterName === parameterName
@@ -50,64 +44,27 @@ export default function Home() {
     
     // パラメータ状態を更新
     setParameters(newParameters);
-  };
-
-  // 自然言語コマンド処理ハンドラー
-  const handleCommandSubmit = async (command: string) => {
-    if (!isApiKeySet) {
-      setFeedback('Gemini APIキーが設定されていないため、自然言語機能は利用できません。');
-      return;
-    }
-    
-    setIsProcessing(true);
-    setFeedback(null);
-    
-    try {
-      // Gemini APIを使用して自然言語コマンドを処理
-      const result = await processNaturalLanguageCommand(command);
-      
-      if (result.success && result.parameters) {
-        // パラメータを更新
-        const newParameters = [...parameters];
-        
-        result.parameters.forEach(param => {
-          const { parameterType, parameterName, value } = param;
-          
-          // 既存のパラメータを探す
-          const existingParamIndex = newParameters.findIndex(
-            p => p.parameterType === parameterType && p.parameterName === parameterName
-          );
-          
-          if (existingParamIndex >= 0) {
-            // 既存のパラメータを更新
-            newParameters[existingParamIndex] = { parameterType, parameterName, value };
-          } else {
-            // 新しいパラメータを追加
-            newParameters.push({ parameterType, parameterName, value });
-          }
-        });
-        
-        // パラメータ状態を更新
-        setParameters(newParameters);
-        
-        // フィードバックを設定
-        setFeedback(result.feedback);
-      } else {
-        // エラーフィードバックを設定
-        setFeedback(result.feedback || 'コマンドの処理に失敗しました。別の表現で試してください。');
-      }
-    } catch (error) {
-      console.error('コマンド処理中にエラーが発生しました:', error);
-      setFeedback('エラーが発生しました。別の表現で試してください。');
-    } finally {
-      setIsProcessing(false);
-    }
+    console.log('更新後のパラメータ一覧:', newParameters);
   };
 
   // リセットボタンのハンドラー
   const handleReset = () => {
     setParameters([]);
-    setFeedback('すべてのパラメータをリセットしました。');
+    console.log('すべてのパラメータをリセットしました');
+    
+    // 簡単なフィードバックを表示（オプション）
+    const feedbackElement = document.createElement('div');
+    feedbackElement.textContent = 'パラメータをリセットしました';
+    feedbackElement.className = 'fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-md shadow-lg z-50 transition-opacity duration-500';
+    document.body.appendChild(feedbackElement);
+    
+    // 3秒後にフィードバックを消す
+    setTimeout(() => {
+      feedbackElement.style.opacity = '0';
+      setTimeout(() => {
+        document.body.removeChild(feedbackElement);
+      }, 500);
+    }, 3000);
   };
 
   return (
@@ -152,10 +109,13 @@ export default function Home() {
             <div className="bg-card-dark border border-border-dark rounded-lg shadow-card">
               <div className="p-4 border-b border-border-dark bg-gradient-card">
                 <h2 className="text-xl font-semibold text-white">パラメータ設定</h2>
-                <p className="text-sm text-gray-400">モデルの表情や姿勢を調整</p>
+                <p className="text-sm text-gray-400">自然言語で指示するか、詳細設定を開いて調整</p>
               </div>
               <div className="p-4">
-                <VRMParameterEditor onParameterChange={handleParameterChange} />
+                <VRMParameterEditor 
+                  onParameterChange={handleParameterChange} 
+                  currentParameters={parameters}
+                />
                 <div className="mt-4">
                   <button
                     onClick={handleReset}
@@ -164,28 +124,6 @@ export default function Home() {
                     パラメータをリセット
                   </button>
                 </div>
-              </div>
-            </div>
-            
-            {/* 自然言語インターフェース */}
-            <div className="bg-card-dark border border-border-dark rounded-lg shadow-card">
-              <div className="p-4 border-b border-border-dark bg-gradient-card">
-                <h2 className="text-xl font-semibold text-white">AI支援</h2>
-                <p className="text-sm text-gray-400">自然言語でモデルを操作</p>
-              </div>
-              <div className="p-4">
-                <NaturalLanguageInterface 
-                  onCommandSubmit={handleCommandSubmit}
-                  feedback={feedback}
-                  isProcessing={isProcessing}
-                />
-                
-                {!isApiKeySet && (
-                  <div className="mt-4 p-4 bg-yellow-900/40 border border-yellow-900/60 text-yellow-200 rounded-md">
-                    <p className="font-medium">注意: Gemini APIキーが設定されていません</p>
-                    <p className="text-sm mt-1">自然言語機能を利用するには、環境変数 NEXT_PUBLIC_GEMINI_API_KEY を設定してください。</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
