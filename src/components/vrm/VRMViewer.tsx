@@ -301,7 +301,10 @@ const VRMModel: React.FC<{
               'leftArmRotationZ': 'leftUpperArm',
               'headRotationX': 'head',
               'headRotationY': 'head',
-              'headRotationZ': 'head'
+              'headRotationZ': 'head',
+              'spineRotationX': 'spine',
+              'spineRotationY': 'spine',
+              'spineRotationZ': 'spine',
             };
 
             const boneName = boneMap[name];
@@ -316,14 +319,12 @@ const VRMModel: React.FC<{
               return;
             }
 
-            // 回転軸を決定
-            const axis = name.slice(-1).toLowerCase();
+            // 回転軸と角度を決定
+            const axis = name.slice(-1).toLowerCase() as 'x' | 'y' | 'z';
             const angle = value * Math.PI; // -1.0～1.0 から -π～π に変換
 
-            // 現在の回転を保持
-            const rotation = new THREE.Euler().copy(bone.rotation);
-
-            // 指定された軸の回転のみを更新
+            // 回転を適用
+            const rotation = bone.rotation.clone();
             switch (axis) {
               case 'x':
                 rotation.x = angle;
@@ -336,7 +337,7 @@ const VRMModel: React.FC<{
                 break;
             }
 
-            // 回転を適用
+            // 回転を設定
             bone.rotation.copy(rotation);
             bone.updateMatrix();
             bone.updateMatrixWorld(true);
