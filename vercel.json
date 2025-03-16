@@ -4,7 +4,7 @@
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "regions": ["all"],
+  "regions": ["hnd1"],
   "outputDirectory": ".next",
   "crons": [],
   "public": false,
