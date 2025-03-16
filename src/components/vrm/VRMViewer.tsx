@@ -16,8 +16,8 @@ console.log('@pixiv/three-vrm modules:', Object.keys(require('@pixiv/three-vrm')
 interface VRMViewerProps {
   modelPath?: string;
   parameters?: {
-    parameterType: string;
-    parameterName: string;
+    category: string;
+    name: string;
     value: number;
   }[];
 }
@@ -26,8 +26,8 @@ const VRMModel: React.FC<{
   modelPath?: string;
   vrmFile?: File;
   parameters?: {
-    parameterType: string;
-    parameterName: string;
+    category: string;
+    name: string;
     value: number;
   }[];
 }> = ({ modelPath, vrmFile, parameters }) => {
@@ -276,309 +276,103 @@ const VRMModel: React.FC<{
     }
   }, [vrmFile, loadVRMFromFile]);
 
-  // パラメータが変更されたときの処理
+  // パラメータの変更を監視して適用
   useEffect(() => {
-    if (!vrm || !parameters || parameters.length === 0) return;
+    if (!vrm || !parameters) return;
 
-    // パラメータの適用
-    parameters.forEach(param => {
-      const { parameterType, parameterName, value } = param;
+    console.log('VRMViewer: パラメータを適用します:', parameters);
 
-      // パラメータタイプに応じた処理
-      switch (parameterType) {
-        case 'pose':
-          // ポーズパラメータの適用
-          applyPoseParameter(vrm, parameterName, value);
-          break;
-        case 'face':
-          // 表情パラメータの適用
-          applyFaceParameter(vrm, parameterName, value);
-          break;
-        case 'material':
-          // マテリアルパラメータの適用
-          applyMaterialParameter(vrm, parameterName, value);
-          break;
-        default:
-          console.warn(`未知のパラメータタイプ: ${parameterType}`);
+    parameters.forEach(({ category, name, value }) => {
+      if (!category || !name || typeof value !== 'number') {
+        console.warn('無効なパラメータ:', { category, name, value });
+        return;
+      }
+
+      try {
+        switch (category.toLowerCase()) {
+          case 'pose': {
+            // ボーン名とパラメータの対応を単純化
+            const boneMap: Record<string, VRMHumanBoneName> = {
+              'rightArmRotationX': 'rightUpperArm',
+              'rightArmRotationY': 'rightUpperArm',
+              'rightArmRotationZ': 'rightUpperArm',
+              'leftArmRotationX': 'leftUpperArm',
+              'leftArmRotationY': 'leftUpperArm',
+              'leftArmRotationZ': 'leftUpperArm',
+              'headRotationX': 'head',
+              'headRotationY': 'head',
+              'headRotationZ': 'head'
+            };
+
+            const boneName = boneMap[name];
+            if (!boneName) {
+              console.warn(`未知のポーズパラメータ: ${name}`);
+              return;
+            }
+
+            const bone = vrm.humanoid.getNormalizedBoneNode(boneName);
+            if (!bone) {
+              console.warn(`ボーン '${boneName}' が見つかりませんでした`);
+              return;
+            }
+
+            // 回転軸を決定
+            const axis = name.slice(-1).toLowerCase();
+            const angle = value * Math.PI; // -1.0～1.0 から -π～π に変換
+
+            // 現在の回転を保持
+            const rotation = new THREE.Euler().copy(bone.rotation);
+
+            // 指定された軸の回転のみを更新
+            switch (axis) {
+              case 'x':
+                rotation.x = angle;
+                break;
+              case 'y':
+                rotation.y = angle;
+                break;
+              case 'z':
+                rotation.z = angle;
+                break;
+            }
+
+            // 回転を適用
+            bone.rotation.copy(rotation);
+            bone.updateMatrix();
+            bone.updateMatrixWorld(true);
+
+            console.log(`ポーズを適用: ${boneName} の ${axis}軸を ${angle}ラジアン回転`);
+            break;
+          }
+          case 'face': {
+            if (!vrm.expressionManager) {
+              console.warn('表情マネージャーが利用できません');
+              return;
+            }
+
+            // 表情名を正規化
+            const expressionName = name.toLowerCase();
+            vrm.expressionManager.setValue(expressionName, value);
+            vrm.expressionManager.update();
+
+            console.log(`表情を適用: ${expressionName} = ${value}`);
+            break;
+          }
+        }
+      } catch (error) {
+        console.error(`パラメータの適用中にエラー ${category}/${name}:`, error);
       }
     });
 
+    // VRMの状態を更新
+    vrm.update(0);
+
   }, [parameters, vrm]);
-
-  // ポーズパラメータの適用関数
-  const applyPoseParameter = (vrm: VRM, parameterName: string, value: number) => {
-    if (!vrm.humanoid) return;
-    
-    try {
-      // パラメータ名に基づいてボーンと回転軸を決定
-      let boneName: string | null = null;
-      let rotationAxis: 'x' | 'y' | 'z' = 'y';
-      
-      // パラメータ名からボーン名と回転軸を抽出
-      if (parameterName.startsWith('headRotation')) {
-        boneName = 'head';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('spineRotation')) {
-        boneName = 'spine';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('leftArmRotation')) {
-        boneName = 'leftUpperArm';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('rightArmRotation')) {
-        boneName = 'rightUpperArm';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('leftHandRotation')) {
-        boneName = 'leftHand';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('rightHandRotation')) {
-        boneName = 'rightHand';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('leftLegRotation')) {
-        boneName = 'leftUpperLeg';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('rightLegRotation')) {
-        boneName = 'rightUpperLeg';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('leftFootRotation')) {
-        boneName = 'leftFoot';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else if (parameterName.startsWith('rightFootRotation')) {
-        boneName = 'rightFoot';
-        rotationAxis = parameterName.charAt(parameterName.length - 1).toLowerCase() as 'x' | 'y' | 'z';
-      } else {
-        console.warn(`未知のポーズパラメータ: ${parameterName}`);
-        return;
-      }
-      
-      // ボーン名からVRMのボーンを取得する
-      let targetBone = null;
-      
-      // VRM規格のボーン名に変換（VRM 0.x系とVRM 1.0系の両方に対応）
-      const vrmBoneName = convertToVRMBoneName(boneName);
-      
-      if (vrmBoneName) {
-        // まず標準化されたボーン取得APIを試す
-        targetBone = vrm.humanoid.getNormalizedBoneNode(vrmBoneName as any) || 
-                     vrm.humanoid.getRawBoneNode(vrmBoneName as any);
-                     
-        // 見つからない場合は名前ベースで検索
-        if (!targetBone) {
-          targetBone = Object.values(vrm.humanoid.humanBones).find(bone => 
-            bone.node.name.toLowerCase().includes(boneName!.toLowerCase()))?.node;
-        }
-      }
-      
-      if (!targetBone) {
-        console.warn(`ボーン '${boneName}' (VRM名: ${vrmBoneName}) が見つかりませんでした`);
-        return;
-      }
-      
-      // 値を角度（ラジアン）に変換して回転を適用
-      const angle = value * Math.PI; // 値を-1.0～1.0と仮定して-π～πに変換
-      
-      // 軸に応じて回転を適用
-      if (rotationAxis === 'x') {
-        targetBone.rotation.x = angle;
-      } else if (rotationAxis === 'y') {
-        targetBone.rotation.y = angle;
-      } else if (rotationAxis === 'z') {
-        targetBone.rotation.z = angle;
-      }
-      
-      // デバッグ用
-      console.log(`ポーズパラメータを適用: ${boneName} (${vrmBoneName}) の ${rotationAxis}軸を ${angle}ラジアン回転`);
-    } catch (error) {
-      console.error('ポーズパラメータの適用中にエラーが発生しました:', error);
-    }
-  };
-  
-  // 内部ボーン名をVRM規格のボーン名に変換するヘルパー関数
-  const convertToVRMBoneName = (internalName: string): string | null => {
-    const boneMap: Record<string, string> = {
-      'head': 'head',
-      'neck': 'neck',
-      'spine': 'spine',
-      'hips': 'hips',
-      'leftUpperArm': 'leftUpperArm',
-      'leftLowerArm': 'leftLowerArm',
-      'leftHand': 'leftHand',
-      'rightUpperArm': 'rightUpperArm',
-      'rightLowerArm': 'rightLowerArm',
-      'rightHand': 'rightHand',
-      'leftUpperLeg': 'leftUpperLeg',
-      'leftLowerLeg': 'leftLowerLeg',
-      'leftFoot': 'leftFoot',
-      'rightUpperLeg': 'rightUpperLeg',
-      'rightLowerLeg': 'rightLowerLeg',
-      'rightFoot': 'rightFoot'
-    };
-    
-    return boneMap[internalName] || null;
-  };
-
-  // 表情パラメータの適用関数
-  const applyFaceParameter = (vrm: VRM, parameterName: string, value: number) => {
-    if (!vrm.expressionManager) {
-      console.warn('表情マネージャーが利用できません');
-      return;
-    }
-    
-    try {
-      // 表情パラメータ名とVRMの表情プリセット名のマッピング
-      const expressionMap: Record<string, string> = {
-        'happy': 'happy',
-        'angry': 'angry',
-        'sad': 'sad',
-        'surprised': 'surprised',
-        'blink': 'blink', // まばたきの場合は両目を閉じる
-        'blinkLeft': 'blinkLeft',
-        'blinkRight': 'blinkRight',
-        'neutral': 'neutral',
-        'lookLeft': 'lookLeft',
-        'lookRight': 'lookRight',
-        'lookUp': 'lookUp',
-        'lookDown': 'lookDown'
-      };
-      
-      // 対応する表情名を取得
-      const expressionName = expressionMap[parameterName];
-      
-      if (expressionName) {
-        // 特殊なケース: まばたき
-        if (parameterName === 'blink') {
-          // 両方の目を閉じる
-          vrm.expressionManager.setValue('blinkLeft', value);
-          vrm.expressionManager.setValue('blinkRight', value);
-        } else {
-          // 指定された表情を適用
-          vrm.expressionManager.setValue(expressionName, value);
-        }
-        
-        // 表情を更新
-        vrm.expressionManager.update();
-        
-        // デバッグ用
-        console.log(`表情パラメータを適用: ${expressionName} = ${value}`);
-      } else {
-        console.warn(`未知の表情パラメータ: ${parameterName}`);
-      }
-    } catch (error) {
-      console.error('表情パラメータの適用中にエラーが発生しました:', error);
-    }
-  };
-
-  // マテリアルパラメータの適用関数
-  const applyMaterialParameter = (vrm: VRM, parameterName: string, value: number) => {
-    try {
-      // マテリアル名の修正（metallic -> metalness）
-      const fixedParamName = parameterName === 'metallic' ? 'metalness' : parameterName;
-      // 透明度パラメータ名の修正（transparency -> opacity）
-      const materialPropName = fixedParamName === 'transparency' ? 'opacity' : fixedParamName;
-      
-      let appliedToAny = false;
-      
-      vrm.scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          // meshの場合のみmaterial属性にアクセスする
-          const mesh = object as THREE.Mesh;
-          if (mesh.material) {
-            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            
-            materials.forEach(material => {
-              if (material instanceof THREE.MeshStandardMaterial || 
-                  material instanceof THREE.MeshPhysicalMaterial) {
-                // マテリアルプロパティの調整
-                switch (materialPropName) {
-                  case 'metalness':
-                    material.metalness = value;
-                    appliedToAny = true;
-                    break;
-                  case 'roughness':
-                    material.roughness = value;
-                    appliedToAny = true;
-                    break;
-                  case 'emissiveIntensity':
-                    material.emissiveIntensity = value;
-                    appliedToAny = true;
-                    break;
-                  case 'opacity':
-                    material.opacity = value;
-                    material.transparent = value < 1.0;
-                    appliedToAny = true;
-                    break;
-                  default:
-                    // その他のプロパティ
-                    console.warn(`サポートされていないマテリアルプロパティ: ${materialPropName}`);
-                    break;
-                }
-                
-                material.needsUpdate = true;
-              } else if (material.type === 'ShaderMaterial' || material.type === 'RawShaderMaterial') {
-                // シェーダーマテリアルの場合
-                const shaderMaterial = material as THREE.ShaderMaterial;
-                if (shaderMaterial.uniforms) {
-                  // VRMのMToonマテリアルや他のシェーダーマテリアルの透明度設定
-                  if (materialPropName === 'opacity' && shaderMaterial.uniforms.opacity) {
-                    shaderMaterial.uniforms.opacity.value = value;
-                    // MToonマテリアルの場合、透明設定も変更する
-                    if (shaderMaterial.uniforms.isTransparent !== undefined) {
-                      shaderMaterial.uniforms.isTransparent.value = value < 1.0;
-                    }
-                    appliedToAny = true;
-                  }
-                  // 他のプロパティも設定できるように拡張可能
-                }
-                
-                material.needsUpdate = true;
-              }
-            });
-          }
-        }
-      });
-      
-      // デバッグ用
-      if (appliedToAny) {
-        console.log(`マテリアルパラメータを適用: ${parameterName} (${materialPropName}) = ${value}`);
-      } else {
-        console.warn(`マテリアルパラメータを適用できませんでした: ${parameterName} (${materialPropName}) = ${value}`);
-      }
-    } catch (error) {
-      console.error('マテリアルパラメータの適用中にエラーが発生しました:', error);
-    }
-  };
 
   // アニメーションフレームごとの更新
   useFrame((state, delta) => {
-    if (loading) {
-      animationRef.current += delta;
-      // ローディングアニメーションなどを追加できます
-    }
-    
-    // VRMのアップデート
     if (vrm) {
       vrm.update(delta);
-    }
-    
-    // パラメータの適用
-    if (vrm && parameters && parameters.length > 0) {
-      parameters.forEach(param => {
-        const { parameterType, parameterName, value } = param;
-        
-        switch (parameterType) {
-          case 'pose':
-            applyPoseParameter(vrm, parameterName, value);
-            break;
-          case 'face':
-            applyFaceParameter(vrm, parameterName, value);
-            break;
-          case 'material':
-            applyMaterialParameter(vrm, parameterName, value);
-            break;
-          default:
-            // 未知のパラメータタイプの場合は何もしない
-            break;
-        }
-      });
     }
   });
 

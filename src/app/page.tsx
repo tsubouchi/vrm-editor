@@ -47,10 +47,69 @@ export default function Home() {
   };
 
   // コマンド送信ハンドラー
-  const handleCommandSubmit = (command: string) => {
+  const handleCommandSubmit = async (command: string) => {
     console.log('コマンド受信:', command);
-    // ここで自然言語コマンドの処理を行う
-    // 実際の実装ではgeminiServiceなどを呼び出す
+    
+    try {
+      // Gemini APIを呼び出し
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command }),
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'APIリクエストが失敗しました');
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || '不明なエラーが発生しました');
+      }
+
+      console.log('APIレスポンス:', data);
+
+      // パラメータを更新
+      if (data.parameters && Array.isArray(data.parameters)) {
+        handleParameterChange(data.parameters);
+      }
+
+      // フィードバックを表示
+      const feedbackElement = document.createElement('div');
+      feedbackElement.textContent = '設定を更新しました';
+      feedbackElement.className = 'fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-md shadow-lg z-50 transition-opacity duration-500';
+      document.body.appendChild(feedbackElement);
+      
+      // 3秒後にフィードバックを消す
+      setTimeout(() => {
+        feedbackElement.style.opacity = '0';
+        setTimeout(() => {
+          document.body.removeChild(feedbackElement);
+        }, 500);
+      }, 3000);
+
+    } catch (error) {
+      console.error('API Error:', error);
+      
+      // エラーフィードバックを表示
+      const errorElement = document.createElement('div');
+      errorElement.textContent = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      errorElement.className = 'fixed top-4 right-4 bg-red-500 text-white py-2 px-4 rounded-md shadow-lg z-50 transition-opacity duration-500';
+      document.body.appendChild(errorElement);
+      
+      // 3秒後にエラーメッセージを消す
+      setTimeout(() => {
+        errorElement.style.opacity = '0';
+        setTimeout(() => {
+          document.body.removeChild(errorElement);
+        }, 500);
+      }, 3000);
+    }
   };
 
   // リセットボタンのハンドラー
@@ -147,6 +206,13 @@ export default function Home() {
           <p className="text-xs mt-1 text-gray-500">このVRMエディターは<a href="https://github.com/tsubouchi/vrm-editor" className="text-accent-blue hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">GitHub</a>で公開されています。</p>
         </div>
       </main>
+
+      {/* フッター */}
+      <footer className="py-4 px-4 border-t border-border-dark bg-[#121212] mt-auto">
+        <div className="container mx-auto text-center">
+          <p className="text-sm text-white">© 2025 MyTH株式会社 All Rights Reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
