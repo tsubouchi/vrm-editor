@@ -48,22 +48,18 @@ export async function POST(request: Request) {
 
 [
   {
-    "category": "pose" | "face" | "material",
+    "category": "pose" | "face",
     "name": string,
-    "value": number (0-1の範囲)
+    "value": number (-1から1の範囲)
   }
 ]
 
 使用可能なパラメータ:
 1. ポーズ (category: "pose")
+   - rightArmRotationX/Y/Z: 右腕の回転
+   - leftArmRotationX/Y/Z: 左腕の回転
    - headRotationX/Y/Z: 頭の回転
    - spineRotationX/Y/Z: 背骨の回転
-   - leftArmRotationX/Y/Z: 左腕の回転
-   - rightArmRotationX/Y/Z: 右腕の回転
-   - leftHandRotationX/Y/Z: 左手の回転
-   - rightHandRotationX/Y/Z: 右手の回転
-   - leftLegRotationX/Y/Z: 左脚の回転
-   - rightLegRotationX/Y/Z: 右脚の回転
 
 2. 表情 (category: "face")
    - happy: 笑顔
@@ -73,16 +69,11 @@ export async function POST(request: Request) {
    - surprised: 驚き
    - relaxed: リラックス
 
-3. マテリアル (category: "material")
-   - opacity: 透明度
-   - metallic: 金属感
-   - roughness: 粗さ
-
 例：
 入力: "笑顔にして"
 出力: [{"category": "face", "name": "happy", "value": 1.0}]
 
-入力: "右手を上げて"
+入力: "右腕を上げて"
 出力: [{"category": "pose", "name": "rightArmRotationX", "value": -0.5}]
 
 入力: "悲しい表情"
@@ -90,7 +81,8 @@ export async function POST(request: Request) {
 
 注意：
 - 必ず上記の形式のJSONのみを返してください
-- 値は0から1の範囲で指定してください
+- ポーズの値は-1から1の範囲で指定してください
+- 表情の値は0から1の範囲で指定してください
 - 複数のパラメータを組み合わせても構いません
 - JSONの前後に説明文を入れないでください
 
@@ -131,16 +123,32 @@ export async function POST(request: Request) {
         typeof param === 'object' &&
         typeof param.category === 'string' &&
         typeof param.name === 'string' &&
-        typeof param.value === 'number' &&
-        param.value >= 0 &&
-        param.value <= 1;
+        typeof param.value === 'number';
+
+      // カテゴリー別の値の範囲チェック
+      if (isValid) {
+        if (param.category === 'pose') {
+          if (param.value < -1 || param.value > 1) {
+            console.warn('ポーズパラメータの値が範囲外です:', param);
+            return false;
+          }
+        } else if (param.category === 'face') {
+          if (param.value < 0 || param.value > 1) {
+            console.warn('表情パラメータの値が範囲外です:', param);
+            return false;
+          }
+        }
+      }
 
       if (!isValid) {
-        console.warn('Invalid parameter:', param);
+        console.warn('無効なパラメータ形式:', param);
       }
 
       return isValid;
     });
+
+    // デバッグ用：有効なパラメータを表示
+    console.log('有効なパラメータ:', validParameters);
 
     // レスポンスを返す
     return NextResponse.json({

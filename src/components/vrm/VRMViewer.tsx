@@ -307,12 +307,16 @@ const VRMModel: React.FC<{
               'spineRotationZ': 'spine',
             };
 
+            console.log('ポーズパラメータを処理:', { name, value });
+            console.log('利用可能なボーン:', Object.keys(boneMap));
+
             const boneName = boneMap[name];
             if (!boneName) {
               console.warn(`未知のポーズパラメータ: ${name}`);
               return;
             }
 
+            console.log(`ボーン '${boneName}' を取得中...`);
             const bone = vrm.humanoid.getNormalizedBoneNode(boneName);
             if (!bone) {
               console.warn(`ボーン '${boneName}' が見つかりませんでした`);
@@ -323,26 +327,30 @@ const VRMModel: React.FC<{
             const axis = name.slice(-1).toLowerCase() as 'x' | 'y' | 'z';
             const angle = value * Math.PI; // -1.0～1.0 から -π～π に変換
 
-            // 回転を適用
-            const rotation = bone.rotation.clone();
+            console.log(`回転を適用: ${boneName} の ${axis}軸を ${angle}ラジアンに設定`);
+
+            // 現在の回転を保持
+            const currentRotation = bone.rotation.clone();
+            
+            // 指定された軸の回転のみを更新
             switch (axis) {
               case 'x':
-                rotation.x = angle;
+                currentRotation.x = angle;
                 break;
               case 'y':
-                rotation.y = angle;
+                currentRotation.y = angle;
                 break;
               case 'z':
-                rotation.z = angle;
+                currentRotation.z = angle;
                 break;
             }
 
             // 回転を設定
-            bone.rotation.copy(rotation);
+            bone.rotation.copy(currentRotation);
             bone.updateMatrix();
             bone.updateMatrixWorld(true);
 
-            console.log(`ポーズを適用: ${boneName} の ${axis}軸を ${angle}ラジアン回転`);
+            console.log(`ポーズを適用完了: ${boneName} の現在の回転:`, bone.rotation);
             break;
           }
           case 'face': {
@@ -351,12 +359,17 @@ const VRMModel: React.FC<{
               return;
             }
 
+            console.log('表情パラメータを処理:', { name, value });
+            // 利用可能な表情を確認
+            const expressions = vrm.expressionManager.expressions;
+            console.log('利用可能な表情:', expressions ? Array.from(expressions.keys()) : []);
+
             // 表情名を正規化
             const expressionName = name.toLowerCase();
             vrm.expressionManager.setValue(expressionName, value);
             vrm.expressionManager.update();
 
-            console.log(`表情を適用: ${expressionName} = ${value}`);
+            console.log(`表情を適用完了: ${expressionName} = ${value}`);
             break;
           }
         }
@@ -367,6 +380,7 @@ const VRMModel: React.FC<{
 
     // VRMの状態を更新
     vrm.update(0);
+    console.log('VRMの状態を更新完了');
 
   }, [parameters, vrm]);
 
