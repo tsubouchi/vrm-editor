@@ -4,14 +4,11 @@ import React, { useState, useEffect } from 'react';
 import VRMViewer from '@/components/vrm/VRMViewer';
 import VRMParameterEditor from '@/components/ui/VRMParameterEditor';
 import { Squares } from '@/components/ui/squares-background';
+import { Parameter } from './types';
 
 export default function Home() {
   // パラメータの状態管理
-  const [parameters, setParameters] = useState<{
-    parameterType: string;
-    parameterName: string;
-    value: number;
-  }[]>([]);
+  const [parameters, setParameters] = useState<Parameter[]>([]);
 
   // APIキーの確認
   useEffect(() => {
@@ -23,28 +20,37 @@ export default function Home() {
   }, []);
 
   // パラメータ変更ハンドラー
-  const handleParameterChange = (parameterType: string, parameterName: string, value: number) => {
-    console.log(`パラメータ変更: ${parameterType} - ${parameterName} = ${value}`);
+  const handleParameterChange = (newParameters: Parameter[]) => {
+    console.log('パラメータ変更:', newParameters);
     
-    // 既存のパラメータ配列から同じタイプと名前のパラメータを探す
-    const existingParamIndex = parameters.findIndex(
-      param => param.parameterType === parameterType && param.parameterName === parameterName
-    );
-
-    // 新しいパラメータ配列を作成
-    const newParameters = [...parameters];
+    // 新しいパラメータを既存のものとマージ
+    const updatedParameters = [...parameters];
     
-    if (existingParamIndex >= 0) {
-      // 既存のパラメータを更新
-      newParameters[existingParamIndex] = { parameterType, parameterName, value };
-    } else {
-      // 新しいパラメータを追加
-      newParameters.push({ parameterType, parameterName, value });
-    }
+    // 各新しいパラメータに対して処理
+    newParameters.forEach(newParam => {
+      const existingParamIndex = updatedParameters.findIndex(
+        param => param.category === newParam.category && param.name === newParam.name
+      );
+      
+      if (existingParamIndex >= 0) {
+        // 既存のパラメータを更新
+        updatedParameters[existingParamIndex] = newParam;
+      } else {
+        // 新しいパラメータを追加
+        updatedParameters.push(newParam);
+      }
+    });
     
     // パラメータ状態を更新
-    setParameters(newParameters);
-    console.log('更新後のパラメータ一覧:', newParameters);
+    setParameters(updatedParameters);
+    console.log('更新後のパラメータ一覧:', updatedParameters);
+  };
+
+  // コマンド送信ハンドラー
+  const handleCommandSubmit = (command: string) => {
+    console.log('コマンド受信:', command);
+    // ここで自然言語コマンドの処理を行う
+    // 実際の実装ではgeminiServiceなどを呼び出す
   };
 
   // リセットボタンのハンドラー
@@ -52,7 +58,7 @@ export default function Home() {
     setParameters([]);
     console.log('すべてのパラメータをリセットしました');
     
-    // 簡単なフィードバックを表示（オプション）
+    // 簡単なフィードバックを表示
     const feedbackElement = document.createElement('div');
     feedbackElement.textContent = 'パラメータをリセットしました';
     feedbackElement.className = 'fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-md shadow-lg z-50 transition-opacity duration-500';
@@ -99,7 +105,11 @@ export default function Home() {
               <p className="text-sm text-gray-400">3Dモデルを閲覧・編集</p>
             </div>
             <div className="w-full h-[70vh] relative">
-              <VRMViewer parameters={parameters} />
+              <VRMViewer parameters={parameters.map(param => ({
+                parameterType: param.category,
+                parameterName: param.name,
+                value: param.value
+              }))} />
             </div>
           </div>
           
@@ -114,6 +124,8 @@ export default function Home() {
               <div className="p-4">
                 <VRMParameterEditor 
                   onParameterChange={handleParameterChange} 
+                  onCommandSubmit={handleCommandSubmit}
+                  onReset={handleReset}
                   currentParameters={parameters}
                 />
                 <div className="mt-4">
