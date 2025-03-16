@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { OrbitControls, Stats, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VRM, VRMLoaderPlugin } from '@pixiv/three-vrm';
+import { VRM, VRMLoaderPlugin, VRMHumanBoneName } from '@pixiv/three-vrm';
 import { DropZone } from '@/components/ui/dropzone';
 import { Squares } from '@/components/ui/squares-background';
 
@@ -142,7 +142,7 @@ const VRMModel: React.FC<{
       (error) => {
         // エラー処理
         console.error('VRMモデルの読み込みに失敗しました:', error);
-        setError(`読み込みエラー: ${error.message}`);
+        setError(`読み込みエラー: ${(error as Error).message || 'Unknown error'}`);
         setLoading(false);
       }
     );
@@ -666,7 +666,7 @@ const VRMViewer: React.FC<VRMViewerProps> = ({ modelPath, parameters }) => {
   const [hasModel, setHasModel] = useState<boolean>(!!modelPath);
   const [debugInfo, setDebugInfo] = useState<string>('準備完了');
 
-  const handleFileDrop = (e: React.DragEvent<HTMLElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     try {
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -681,8 +681,7 @@ const VRMViewer: React.FC<VRMViewerProps> = ({ modelPath, parameters }) => {
         }
       }
     } catch (error) {
-      console.error('ファイルのドロップ処理でエラーが発生しました:', error);
-      setDebugInfo(`エラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
+      setDebugInfo(`ファイルのドロップ処理中にエラーが発生しました: ${(error as Error).message || "Unknown error"}`);
     }
   };
 
@@ -723,7 +722,7 @@ const VRMViewer: React.FC<VRMViewerProps> = ({ modelPath, parameters }) => {
             <div 
               onClick={handleFileSelect}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={handleFileDrop}
+              onDrop={handleDrop}
               className="w-4/5 h-3/5 flex flex-col items-center justify-center bg-[#1a1a1a] border-dashed border-2 border-blue-500/50 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-[#1a1a1a]/70 transition-all duration-300"
             >
               <div className="p-4 bg-blue-500/10 rounded-full mb-4">
