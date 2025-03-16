@@ -2,8 +2,9 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRM, VRMUtils, VRMSchema } from '@pixiv/three-vrm';
 
 interface VRMViewerProps {
@@ -31,7 +32,7 @@ const VRMModel: React.FC<{
 
   useEffect(() => {
     // VRMローダーの設定
-    const loader = new THREE.GLTFLoader();
+    const loader = new GLTFLoader();
     
     // VRMプラグインを追加
     loader.register((parser) => {
