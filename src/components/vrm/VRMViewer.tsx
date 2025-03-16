@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VRM, VRMUtils, VRMSchema } from '@pixiv/three-vrm';
+import { VRM, VRMLoaderPlugin } from '@pixiv/three-vrm';
 
 interface VRMViewerProps {
   modelPath: string;
@@ -36,7 +36,7 @@ const VRMModel: React.FC<{
     
     // VRMプラグインを追加
     loader.register((parser) => {
-      return new VRM.VRMLoaderPlugin(parser);
+      return new VRMLoaderPlugin(parser);
     });
 
     setLoading(true);
@@ -49,8 +49,11 @@ const VRMModel: React.FC<{
         // VRMインスタンスを取得
         const vrm = gltf.userData.vrm;
         
-        // VRMモデルの初期設定
-        VRMUtils.removeUnnecessaryJoints(gltf.scene);
+        if (!vrm) {
+          setError('VRMモデルが正しく読み込まれませんでした');
+          setLoading(false);
+          return;
+        }
         
         // モデルのスケール調整
         vrm.scene.scale.set(1.0, 1.0, 1.0);
@@ -82,9 +85,6 @@ const VRMModel: React.FC<{
       if (modelRef.current) {
         scene.remove(modelRef.current);
         modelRef.current = null;
-      }
-      if (vrm) {
-        vrm.dispose();
       }
     };
   }, [modelPath, scene]);
@@ -126,60 +126,60 @@ const VRMModel: React.FC<{
 
     // パラメータ名に応じたボーンの回転設定
     if (parameterName === 'headRotationX') {
-      const head = humanoid.getNormalizedBoneNode(VRMSchema.HumanoidBoneName.Head);
-      if (head) {
-        head.rotation.x = value;
+      const head = humanoid.getNormalizedBone('head');
+      if (head && head.node) {
+        head.node.rotation.x = value;
       }
     } else if (parameterName === 'headRotationY') {
-      const head = humanoid.getNormalizedBoneNode(VRMSchema.HumanoidBoneName.Head);
-      if (head) {
-        head.rotation.y = value;
+      const head = humanoid.getNormalizedBone('head');
+      if (head && head.node) {
+        head.node.rotation.y = value;
       }
     } else if (parameterName === 'headRotationZ') {
-      const head = humanoid.getNormalizedBoneNode(VRMSchema.HumanoidBoneName.Head);
-      if (head) {
-        head.rotation.z = value;
+      const head = humanoid.getNormalizedBone('head');
+      if (head && head.node) {
+        head.node.rotation.z = value;
       }
     } else if (parameterName === 'spineRotationX') {
-      const spine = humanoid.getNormalizedBoneNode(VRMSchema.HumanoidBoneName.Spine);
-      if (spine) {
-        spine.rotation.x = value;
+      const spine = humanoid.getNormalizedBone('spine');
+      if (spine && spine.node) {
+        spine.node.rotation.x = value;
       }
     } else if (parameterName === 'spineRotationY') {
-      const spine = humanoid.getNormalizedBoneNode(VRMSchema.HumanoidBoneName.Spine);
-      if (spine) {
-        spine.rotation.y = value;
+      const spine = humanoid.getNormalizedBone('spine');
+      if (spine && spine.node) {
+        spine.node.rotation.y = value;
       }
     } else if (parameterName === 'spineRotationZ') {
-      const spine = humanoid.getNormalizedBoneNode(VRMSchema.HumanoidBoneName.Spine);
-      if (spine) {
-        spine.rotation.z = value;
+      const spine = humanoid.getNormalizedBone('spine');
+      if (spine && spine.node) {
+        spine.node.rotation.z = value;
       }
     }
   };
 
   // 表情パラメータの適用関数
   const applyFaceParameter = (vrm: VRM, parameterName: string, value: number) => {
-    // ブレンドシェイプの取得
-    const blendShapeProxy = vrm.blendShapeProxy;
-    if (!blendShapeProxy) return;
+    // 表情制御のためのブレンドシェイプマネージャーを取得
+    const expressionManager = vrm.expressionManager;
+    if (!expressionManager) return;
 
     // パラメータ名に応じたブレンドシェイプの設定
     switch (parameterName) {
       case 'happy':
-        blendShapeProxy.setValue(VRMSchema.BlendShapePresetName.Joy, value);
+        expressionManager.setValue('joy', value);
         break;
       case 'sad':
-        blendShapeProxy.setValue(VRMSchema.BlendShapePresetName.Sorrow, value);
+        expressionManager.setValue('sorrow', value);
         break;
       case 'angry':
-        blendShapeProxy.setValue(VRMSchema.BlendShapePresetName.Angry, value);
+        expressionManager.setValue('angry', value);
         break;
       case 'surprised':
-        blendShapeProxy.setValue(VRMSchema.BlendShapePresetName.Surprised, value);
+        expressionManager.setValue('surprised', value);
         break;
       case 'blink':
-        blendShapeProxy.setValue(VRMSchema.BlendShapePresetName.Blink, value);
+        expressionManager.setValue('blink', value);
         break;
       default:
         console.warn(`未知の表情パラメータ: ${parameterName}`);
@@ -191,29 +191,32 @@ const VRMModel: React.FC<{
     // モデルのマテリアル取得
     if (!vrm.scene) return;
 
-    vrm.scene.traverse((object) => {
-      if (object instanceof THREE.Mesh && object.material) {
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        
-        materials.forEach(material => {
-          if (material instanceof THREE.MeshStandardMaterial) {
-            // パラメータ名に応じたマテリアル設定
-            switch (parameterName) {
-              case 'opacity':
-                material.opacity = value;
-                material.transparent = value < 1.0;
-                break;
-              case 'metallic':
-                material.metalness = value;
-                break;
-              case 'roughness':
-                material.roughness = value;
-                break;
-              default:
-                console.warn(`未知のマテリアルパラメータ: ${parameterName}`);
+    vrm.scene.traverse((object: THREE.Object3D) => {
+      if (object instanceof THREE.Mesh) {
+        const meshObject = object as THREE.Mesh;
+        if (meshObject.material) {
+          const materials = Array.isArray(meshObject.material) ? meshObject.material : [meshObject.material];
+          
+          materials.forEach(material => {
+            if (material instanceof THREE.MeshStandardMaterial) {
+              // パラメータ名に応じたマテリアル設定
+              switch (parameterName) {
+                case 'opacity':
+                  material.opacity = value;
+                  material.transparent = value < 1.0;
+                  break;
+                case 'metallic':
+                  material.metalness = value;
+                  break;
+                case 'roughness':
+                  material.roughness = value;
+                  break;
+                default:
+                  console.warn(`未知のマテリアルパラメータ: ${parameterName}`);
+              }
             }
-          }
-        });
+          });
+        }
       }
     });
   };
