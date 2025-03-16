@@ -134,13 +134,13 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md w-full">
-      <h2 className="text-xl font-bold mb-4">モデルコントロール</h2>
+    <div className="bg-[#1e1e1e] p-4 rounded-lg shadow-md w-full">
+      <h2 className="text-xl font-bold mb-4 text-white">モデルコントロール</h2>
       
       {/* チャット履歴表示エリア（高さを2倍に） */}
       <div 
         ref={chatContainerRef}
-        className="bg-gray-50 p-3 rounded-md mb-4 h-80 overflow-y-auto"
+        className="bg-[#2a2a2a] p-3 rounded-md mb-4 h-80 overflow-y-auto"
         style={{ height: '16rem' }}
       >
         {chatHistory.map((message, index) => (
@@ -148,8 +148,8 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
             key={index} 
             className={`mb-2 p-2 rounded-md ${
               message.type === 'user' 
-                ? 'bg-blue-100 text-blue-800 ml-8' 
-                : 'bg-gray-200 text-gray-800 mr-8'
+                ? 'bg-[#303f9f] text-white ml-8' 
+                : 'bg-[#424242] text-gray-200 mr-8'
             }`}
           >
             {message.text}
@@ -163,14 +163,14 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
           value={command}
           onChange={handleCommandChange}
           onKeyDown={handleKeyDown}
-          className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full p-3 border border-gray-700 rounded-md bg-[#2a2a2a] text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="モデルへの指示を入力..."
           style={{ height: '9rem', minHeight: '9rem' }}
         />
         <div className="flex justify-between mt-2">
           <button
             onClick={onReset}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+            className="px-4 py-2 bg-gray-700 text-gray-200 rounded-md hover:bg-gray-600 transition-colors"
           >
             リセット
           </button>
@@ -185,7 +185,7 @@ const VRMParameterEditor: React.FC<VRMParameterEditorProps> = ({
       
       {/* アコーディオンヘッダー */}
       <div
-        className="flex justify-between items-center p-2 bg-gray-100 rounded-md cursor-pointer mb-2"
+        className="flex justify-between items-center p-2 bg-[#333333] text-white rounded-md cursor-pointer mb-2"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <span className="font-medium">詳細パラメータ設定</span>
